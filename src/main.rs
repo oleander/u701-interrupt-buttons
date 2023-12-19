@@ -33,12 +33,11 @@ macro_rules! setup_button {
 
 #[derive(Debug)]
 enum Click {
-  Holding(i32, Duration),
-  Held(i32, Duration),
-  DoubleClick(i32),
-  TripleClick(i32),
-  Unknown(i32),
-  Click(i32)
+  Holding(button::ID, Duration),
+  Held(button::ID, Duration),
+  DoubleClick(button::ID),
+  TripleClick(button::ID),
+  Click(button::ID)
 }
 
 use lazy_static::*;
@@ -83,6 +82,22 @@ pub mod button {
   impl From<ID> for i32 {
     fn from(id: ID) -> Self {
       id as Self
+    }
+  }
+
+  impl From<&i32> for ID {
+    fn from(id: &i32) -> Self {
+      match id {
+        0x04 => ID::M1,
+        0x50 => ID::A2,
+        0x51 => ID::A3,
+        0x52 => ID::A4,
+        0x29 => ID::M2,
+        0x4F => ID::B2,
+        0x05 => ID::B3,
+        0x28 => ID::B4,
+        _ => panic!("Unknown button ID: {}", id)
+      }
     }
   }
 }
@@ -133,17 +148,15 @@ fn events() -> Vec<Click> {
     button.tick();
 
     if button.is_clicked() {
-      events.push(Click::Click(*pid));
+      events.push(Click::Click(pid.into()));
     } else if button.is_double_clicked() {
-      events.push(Click::DoubleClick(*pid));
+      events.push(Click::DoubleClick(pid.into()));
     } else if button.is_triple_clicked() {
-      events.push(Click::TripleClick(*pid));
+      events.push(Click::TripleClick(pid.into()));
     } else if let Some(dur) = button.current_holding_time() {
-      events.push(Click::Holding(*pid, dur));
+      events.push(Click::Holding(pid.into(), dur));
     } else if let Some(dur) = button.held_time() {
-      events.push(Click::Held(*pid, dur));
-    } else {
-      events.push(Click::Unknown(*pid));
+      events.push(Click::Held(pid.into(), dur));
     }
 
     button.reset();
@@ -157,6 +170,7 @@ fn main() -> Result<(), EspError> {
   esp_idf_svc::log::EspLogger::initialize_default();
 
   let peripherals = Peripherals::take().unwrap();
+  let mut state = Click::Click(button::ID::A2);
 
   setup_button!(peripherals.pins.gpio13);
   setup_button!(peripherals.pins.gpio12);
@@ -165,22 +179,19 @@ fn main() -> Result<(), EspError> {
     for event in events() {
       match event {
         Click::Click(pid) => {
-          info!("Button {} clicked", pid);
+          info!("Button {:?} clicked", pid);
         },
         Click::DoubleClick(pid) => {
-          info!("Button {} double clicked", pid);
+          info!("Button {:?} double clicked", pid);
         },
         Click::TripleClick(pid) => {
-          info!("Button {} triple clicked", pid);
+          info!("Button {:?} triple clicked", pid);
         },
         Click::Holding(pid, dur) => {
-          info!("Button {} holding for {:?}ms", pid, dur);
+          info!("Button {:?} holding for {:?}ms", pid, dur);
         },
         Click::Held(pid, dur) => {
-          info!("Button {} held for {:?}ms", pid, dur);
-        },
-        Click::Unknown(pid) => {
-          warn!("Button {} unknown event", pid);
+          info!("Button {:?} held for {:?}ms", pid, dur);
         }
       }
     }
