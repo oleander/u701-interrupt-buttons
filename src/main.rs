@@ -1,21 +1,17 @@
-use std::cell::RefCell;
-
-use critical_section::Mutex;
-use std::sync::Mutex as StdMutex;
-use esp_idf_svc as svc;
-use svc::{sys, hal::gpio::*};
 use hal::{gpio::PinDriver, prelude::Peripherals};
 use std::sync::mpsc::{channel, Receiver, Sender};
-
-use esp_idf_svc::hal;
+use std::sync::Mutex as StdMutex;
+use svc::{sys, hal::gpio::*};
 use lazy_static::lazy_static;
-
+use critical_section::Mutex;
+use std::cell::RefCell;
+use esp_idf_svc as svc;
+use esp_idf_svc::hal;
 use sys::EspError;
 
 static M1: Mutex<RefCell<Option<PinDriver<Gpio12, Input>>>> = Mutex::new(RefCell::new(None));
 static M2: Mutex<RefCell<Option<PinDriver<Gpio13, Input>>>> = Mutex::new(RefCell::new(None));
 
-// Use an atomic u8 to store the state of the button
 static STATE: Mutex<RefCell<Option<i32>>> = Mutex::new(RefCell::new(None));
 lazy_static! {
   static ref CHANNEL: (Mutex<Sender<i32>>, StdMutex<Receiver<i32>>) = {
@@ -30,25 +26,23 @@ macro_rules! setup_button_interrupt {
   ($mutex:ident, $pin:expr) => {
     let mut btn = PinDriver::input($pin)?;
 
-    log::info!("Setup button interrupt");
     btn.set_interrupt_type(InterruptType::LowLevel)?;
     btn.set_pull(hal::gpio::Pull::Up)?;
-    let pin = btn.pin();
 
-    log::info!("Set subscribe");
     unsafe {
       btn
-        .subscribe(move || {
-          // esp_println::println!("Button pressed: {:?}", pin);
+        .subscribe(|| {
           critical_section::with(|cs| {
-            STATE.borrow_ref_mut(cs).replace(pin);
-            $mutex.borrow_ref_mut(cs).as_mut().unwrap().enable_interrupt().unwrap();
+            let mut bbrn = $mutex.borrow_ref_mut(cs);
+            let btn = bbrn.as_mut().unwrap();
+            btn.enable_interrupt().unwrap();
+            STATE.borrow_ref_mut(cs).replace(btn.pin());
           });
         })
         .unwrap();
     }
-    btn.enable_interrupt()?;
 
+    btn.enable_interrupt()?;
     critical_section::with(|cs| $mutex.borrow_ref_mut(cs).replace(btn));
   };
 }
