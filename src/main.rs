@@ -1,6 +1,5 @@
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Mutex as StdMutex;
-use esp32_hal::gpio::{Gpio12, Input, Gpio13};
 use hal::prelude::Peripherals;
 use lazy_static::lazy_static;
 use critical_section::Mutex;
