@@ -43,6 +43,7 @@ enum Click {
 use lazy_static::*;
 
 pub mod media {
+  #[derive(Debug, Copy, Clone)]
   pub enum Command {
     VolumeDown,
     NextTrack,
@@ -64,6 +65,12 @@ pub mod media {
       }
     }
   }
+}
+
+#[derive(Debug, Copy, Clone)]
+enum Packet {
+  Command(media::Command),
+  Shortcut(u8)
 }
 
 pub mod button {
@@ -141,7 +148,7 @@ lazy_static! {
     };
 }
 
-fn events() -> Vec<Click> {
+fn clicks() -> Vec<Click> {
   let mut events = Vec::new();
 
   for (pid, button) in BUTTONS.lock().unwrap().iter_mut() {
@@ -165,12 +172,51 @@ fn events() -> Vec<Click> {
   events
 }
 
+fn events() -> Vec<Packet> {
+  let mut events = Vec::new();
+  use crate::button::ID::*;
+  let mut state = STATE.lock().unwrap();
+
+  for event in clicks() {
+    match (event, state.clone()) {
+      (to @ Click::Click(M1 | M2), _) => {
+        info!("Meta button clicked: {:?}", to);
+      },
+
+      (Click::Click(bid), from @ Click::Click(mid @ (M1 | M2))) => {
+        META.get(&mid).and_then(|meta| meta.get(&bid)).map(|shortcut| {
+          events.push(Packet::Shortcut(*shortcut));
+        });
+      },
+
+      (Click::Click(bid), _) => {
+        EVENT.get(&bid).map(|cmd| {
+          info!("Button clicked: {:?}", cmd);
+          events.push(Packet::Command(*cmd));
+        });
+      },
+
+      (to, from) => {
+        warn!("Unhandled transition: {:?} -> {:?}", from, to);
+      }
+    }
+
+    STATE.lock().unwrap().clone_from(&event);
+  }
+
+  events
+}
+
+
+lazy_static! {
+  static ref STATE: Mutex<Click> = Mutex::new(Click::Click(button::ID::A2));
+}
+
 fn main() -> Result<(), EspError> {
   sys::link_patches();
   esp_idf_svc::log::EspLogger::initialize_default();
 
   let peripherals = Peripherals::take().unwrap();
-  let mut state = Click::Click(button::ID::A2);
 
   setup_button!(peripherals.pins.gpio13);
   setup_button!(peripherals.pins.gpio12);
@@ -179,21 +225,7 @@ fn main() -> Result<(), EspError> {
 
   loop {
     for event in events() {
-      match (event, state) {
-        (to @ Click::Click(M1 | M2), _) => {
-          info!("Meta button clicked: {:?}", to);
-        },
-
-        (to @ Click::Click(_), from @ Click::Click(M1 | M2)) => {
-          info!("Combination button clicked: {:?} + {:?}", from, to);
-        },
-
-        (to, from) => {
-          warn!("Unhandled transition: {:?} -> {:?}", from, to);
-        }
-      }
-
-      state = event;
+      info!("Event: {:?}", event);
     }
   }
 }
