@@ -1,60 +1,38 @@
-use esp_idf_svc::hal;
+use button_driver::{Button, ButtonConfig};
 use esp_idf_svc::sys;
+use std::time::Instant;
+use esp_idf_svc::hal;
+use hal::{gpio::PinDriver, prelude::Peripherals};
+use sys::EspError;
+use log::info;
 
-use hal::{gpio::InterruptType, prelude::Peripherals};
-use critical_section::Mutex;
-use std::cell::RefCell;
+fn main() -> Result<(), EspError> {
+    sys::link_patches();
+    esp_idf_svc::log::EspLogger::initialize_default();
 
-static LED: Mutex<RefCell<Option<hal::gpio::PinDriver<'static, hal::gpio::Gpio2, hal::gpio::Output>>>> =
-  Mutex::new(RefCell::new(None));
-static BUTTON: Mutex<RefCell<Option<hal::gpio::PinDriver<'static, hal::gpio::Gpio9, hal::gpio::Input>>>> =
-  Mutex::new(RefCell::new(None));
+    let peripherals = Peripherals::take().unwrap();
+    let pin = PinDriver::input(peripherals.pins.gpio12)?;
 
-fn main() -> anyhow::Result<()> {
-  sys::link_patches();
-  esp_idf_svc::log::EspLogger::initialize_default();
+    let mut button = Button::new(pin, ButtonConfig::default());
 
-  log::info!("Setup peripherals");
-  let peripherals = Peripherals::take().unwrap();
+    loop {
+        button.tick();
 
-  log::info!("Setup button and led");
-  let mut button = hal::gpio::PinDriver::input(peripherals.pins.gpio9)?;
-
-  log::info!("Setup led");
-  let mut led = hal::gpio::PinDriver::output(peripherals.pins.gpio2)?;
-
-  log::info!("Setup button interrupt");
-  led.set_low()?;
-
-  log::info!("Setup button interrupt");
-  button.set_interrupt_type(InterruptType::NegEdge)?;
-
-  log::info!("Set subscribe");
-  unsafe {
-    button.subscribe(on_button_a_pushed)?;
-  }
-
-  log::info!("Set LED and BUTTON");
-  critical_section::with(|cs| LED.borrow_ref_mut(cs).replace(led));
-  critical_section::with(|cs| BUTTON.borrow_ref_mut(cs).replace(button));
-
-  log::info!("Start loop");
-  loop {
-    critical_section::with(|cs| {
-      esp_println::println!("LED");
-      if let Some(led) = LED.borrow_ref_mut(cs).as_mut() {
-        match led.toggle() {
-          Ok(_) => esp_println::println!("led toggled"),
-          Err(e) => esp_println::println!("led toggle failed due to {:?}", e)
+        if button.is_clicked() {
+            info!("Click");
+        } else if button.is_double_clicked() {
+            info!("Double click");
+        } else if button.is_triple_clicked() {
+            info!("Triple click");
+        } else if let Some(dur) = button.current_holding_time() {
+            info!("Held for {dur:?}");
+        } else if let Some(dur) = button.held_time() {
+            info!("Total holding time {dur:?}");
         }
-      }
-    });
-  }
-}
 
-fn on_button_a_pushed() {
-  esp_println::println!("button a pushed");
-  critical_section::with(|cs| {
-    BUTTON.borrow_ref_mut(cs).as_mut().unwrap().enable_interrupt().unwrap();
-  })
+        button.reset();
+
+        // delay
+        hal::delay::FreeRtos::delay_ms(100);
+    }
 }

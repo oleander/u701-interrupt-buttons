@@ -8,7 +8,7 @@ rustflags = ["--cfg", "espidf_time64", "-C", "default-linker-libraries"]
 
 [target.xtensa-esp32-espidf]
 linker = "ldproxy"
-runner = "espflash flash --monitor" # Select this runner for espflash v2.x.x
+runner = "espflash flash --monitor --baud 115200 --port /dev/cu.usbserial-0001"
 rustflags = ["--cfg", "espidf_time64", "-C", "default-linker-libraries"]
 
 [unstable]
