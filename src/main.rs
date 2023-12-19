@@ -77,10 +77,10 @@ fn event_id() -> Option<i32> {
       },
 
       // Same as previous event
-      (Some(curr), Some(prev)) if curr == prev => {
-        STATE.borrow_ref_mut(cs).replace(prev);
-        None
-      },
+      // (Some(curr), Some(prev)) if curr == prev => {
+      //   STATE.borrow_ref_mut(cs).replace(prev);
+      //   None
+      // },
 
       // New event
       (Some(curr), _) => {
