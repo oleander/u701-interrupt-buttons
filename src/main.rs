@@ -9,6 +9,9 @@ use esp_idf_svc as svc;
 use esp_idf_svc::hal;
 use sys::EspError;
 
+mod keyboard;
+use keyboard::Keyboard;
+
 static M1: Mutex<RefCell<Option<PinDriver<Gpio12, Input>>>> = Mutex::new(RefCell::new(None));
 static M2: Mutex<RefCell<Option<PinDriver<Gpio13, Input>>>> = Mutex::new(RefCell::new(None));
 // 6 more buttons will be added
@@ -37,7 +40,8 @@ macro_rules! setup_button_interrupt {
 
     unsafe {
       // On click
-      btn.subscribe(|| {
+      btn
+        .subscribe(|| {
           critical_section::with(|cs| {
             let mut bbrn = $mutex.borrow_ref_mut(cs);
             let btn = bbrn.as_mut().unwrap();
@@ -45,7 +49,7 @@ macro_rules! setup_button_interrupt {
             if btn.is_high() {
               EVENT.borrow_ref_mut(cs).replace(btn.pin());
             } else {
-              EVENT.borrow_ref_mut(cs).take();
+              EVENT.borrow_ref_mut(cs).replace(0);
             }
 
             btn.enable_interrupt().unwrap();
@@ -64,6 +68,7 @@ fn main() -> Result<(), EspError> {
   svc::log::EspLogger::initialize_default();
 
   let peripherals = Peripherals::take().unwrap();
+  let mut keyboard = Keyboard::new();
 
   setup_button_interrupt!(M1, peripherals.pins.gpio12);
   setup_button_interrupt!(M2, peripherals.pins.gpio13);
@@ -75,18 +80,32 @@ fn main() -> Result<(), EspError> {
 
       match (curr, prev) {
         (Some(curr), Some(prev)) if curr == prev => {
-          // nop
-        }
-        (Some(curr), _) => {
-          STATE.borrow_ref_mut(cs).replace(curr);
-          esp_println::println!("Button {:?} pushed", curr);
-        }
+          // Event has already been processed without a relase
+        },
+
+        // Button was released
+        (Some(0), Some(id)) => {
+          esp_println::println!("Button released: {:?}", id);
+        },
+
+        // Button was released but no previous state
+        (Some(0), None) => {
+          esp_println::println!("[BUG] Button released but no previous state");
+        },
+
+        // A new button was pressed
+        (Some(id), _) => {
+          esp_println::println!("Button {:?} pushed", id);
+          keyboard.write(id.to_string().as_str());
+          STATE.borrow_ref_mut(cs).replace(id);
+        },
+
         (None, _) => {
-          // nop
+          // No button pressed
         }
       }
     });
 
-    hal::delay::FreeRtos::delay_ms(30);
+    hal::delay::FreeRtos::delay_ms(50);
   }
 }
