@@ -1,15 +1,19 @@
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Mutex as StdMutex;
+use std::time::Duration;
 use hal::prelude::Peripherals;
 use lazy_static::lazy_static;
 use critical_section::Mutex;
 use hal::gpio::PinDriver;
+use svc::hal::cpu::Core;
 use std::cell::RefCell;
 use esp_idf_svc as svc;
+use esp_idf_svc::sys::system;
 use svc::hal::gpio::*;
 use esp_idf_svc::hal;
 use sys::EspError;
 use svc::sys;
+use hal::task::watchdog::TWDTConfig;
 
 mod keyboard;
 use keyboard::Keyboard;
@@ -64,10 +68,19 @@ fn main() -> Result<(), EspError> {
   svc::log::EspLogger::initialize_default();
 
   let peripherals = Peripherals::take().unwrap();
+
   let mut keyboard = Keyboard::new();
 
   setup_button_interrupt!(M1, peripherals.pins.gpio12);
   setup_button_interrupt!(M2, peripherals.pins.gpio13);
+
+  let config = TWDTConfig {
+    duration: Duration::from_secs(10), panic_on_trigger: true, subscribed_idle_tasks: Core::Core0.into()
+  };
+
+  let mut driver = hal::task::watchdog::TWDTDriver::new(peripherals.twdt, &config)?;
+
+  let mut watchdog = driver.watch_current_task()?;
 
   loop {
     critical_section::with(|cs| {
@@ -92,6 +105,7 @@ fn main() -> Result<(), EspError> {
       }
     });
 
+    watchdog.feed();
     hal::delay::FreeRtos::delay_ms(50);
   }
 }
