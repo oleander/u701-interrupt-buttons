@@ -183,7 +183,7 @@ fn events() -> Vec<Packet> {
         info!("Meta button clicked: {:?}", to);
       },
 
-      (Click::Click(bid), from @ Click::Click(mid @ (M1 | M2))) => {
+      (Click::Click(bid), Click::Click(mid @ (M1 | M2))) => {
         META.get(&mid).and_then(|meta| meta.get(&bid)).map(|shortcut| {
           events.push(Packet::Shortcut(*shortcut));
         });
@@ -201,12 +201,11 @@ fn events() -> Vec<Packet> {
       }
     }
 
-    STATE.lock().unwrap().clone_from(&event);
+    state.clone_from(&event);
   }
 
   events
 }
-
 
 lazy_static! {
   static ref STATE: Mutex<Click> = Mutex::new(Click::Click(button::ID::A2));
