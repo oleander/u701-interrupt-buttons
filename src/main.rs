@@ -1,12 +1,11 @@
-use std::collections::HashMap;
-use esp_idf_svc::hal::gpio::{AnyInputPin, Input, InputPin, Pin};
+use esp_idf_svc::hal::gpio::{InputPin, Pin};
 use button_driver::{Button, ButtonConfig};
+use std::collections::HashMap;
 use hal::prelude::Peripherals;
 use esp_idf_svc::{hal, sys};
-use esp_idf_svc::hal::gpio;
 use hal::gpio::PinDriver;
-use sys::EspError;
 use log::{info, warn};
+use sys::EspError;
 
 macro_rules! setup_button {
   ($pin:expr, $buttons:expr) => {{
@@ -54,6 +53,4 @@ fn main() -> Result<(), EspError> {
       button.reset();
     }
   }
-
-  Ok(())
 }
