@@ -1,4 +1,3 @@
-
 use std::sync::mpsc::{channel, Receiver, Sender};
 use svc::hal::task::watchdog::TWDTDriver;
 use hal::task::watchdog::TWDTConfig;
@@ -75,42 +74,49 @@ fn main() -> Result<(), EspError> {
   setup_button_interrupt!(M1, peripherals.pins.gpio12);
   setup_button_interrupt!(M2, peripherals.pins.gpio13);
 
-  let config = TWDTConfig {
-    duration: Duration::from_secs(10),
-    panic_on_trigger: false,
-    subscribed_idle_tasks: Core::Core0.into()
-  };
+  // let config = TWDTConfig {
+  //   duration: Duration::from_secs(10), panic_on_trigger: false, subscribed_idle_tasks: Core::Core0.into()
+  // };
 
-  let mut driver = TWDTDriver::new(peripherals.twdt, &config)?;
+  // let mut driver = TWDTDriver::new(peripherals.twdt, &config)?;
 
-  let mut watchdog = driver.watch_current_task()?;
+  // let mut watchdog = driver.watch_current_task()?;
 
   loop {
     critical_section::with(|cs| {
       let curr = EVENT.borrow_ref_mut(cs).take();
       let prev = STATE.borrow_ref_mut(cs).take();
 
+      // If no event, return
       match (curr, prev) {
-        (Some(curr), Some(prev)) if curr == prev => {
-          // Event has already been processed without a relase
-        },
-
-        // A new button was pressed
-        (Some(id), _) => {
-          esp_println::println!("Button {:?} pushed", id);
-          if keyboard.connected() {
-            keyboard.write(id.to_string().as_str());
-          }
-          STATE.borrow_ref_mut(cs).replace(id);
-        },
-
-        (None, _) => {
-          // No button pressed
+        // No new event
+        (None, Some(prev)) => {
+          esp_println::println!("No new event");
+          STATE.borrow_ref_mut(cs).replace(prev);
         }
-      }
-    });
 
-    watchdog.feed().unwrap();
-    hal::delay::FreeRtos::delay_ms(50);
+        // Same as previous event
+        (Some(curr), Some(prev)) if curr == prev => {
+          esp_println::println!("No change");
+          STATE.borrow_ref_mut(cs).replace(prev);
+        }
+
+        // New event
+        (Some(curr), _) => {
+          esp_println::println!("New button pushed: {}", curr);
+
+          if keyboard.connected() {
+            keyboard.write(curr.to_string().as_str());
+          }
+
+          STATE.borrow_ref_mut(cs).replace(curr);
+        }
+
+        (None, None) => return,
+      }
+
+      // watchdog.feed().unwrap();
+      hal::delay::FreeRtos::delay_ms(50);
+    });
   }
 }
