@@ -1,62 +1,50 @@
-#![no_std]
+// #![no_std]
 #![no_main]
 
 use core::panic::PanicInfo;
 use esp32_hal::{
-  clock_control::{sleep, ClockControl, XTAL_FREQUENCY_AUTO}, dport::Split, dprintln, prelude::*, target, timer::Timer
+  prelude::*, gpio::{Gpio13, PullUp, Input, Pin, Event}, clock::ClockControl, peripherals::Peripherals, Delay, IO
 };
-use esp32_hal::analog::config::{Adc1Config, Attenuation};
-use esp32_hal::analog::adc::ADC;
-use esp32_hal::target::EFUSE;
-use esp32_hal::efuse::Efuse;
 
 #[entry]
 fn main() -> ! {
-  let dp = target::Peripherals::take().expect("failed to acquire peripherals");
-  let (_, dport_clock_control) = dp.DPORT.split();
+  sys::link_patches();
+  svc::log::EspLogger::initialize_default();
 
-  let clock_control = ClockControl::new(dp.RTCCNTL, dp.APB_CTRL, dport_clock_control, XTAL_FREQUENCY_AUTO).unwrap();
+  log::info!("Peripherals initialized");
+  let dp = Peripherals::take();
 
-  // disable RTC watchdog
-  let (clock_control_config, mut watchdog) = clock_control.freeze().unwrap();
-  watchdog.disable();
+  log::info!("System setup");
+  let system = dp.SYSTEM.split();
 
-  // disable MST watchdogs
-  let (.., mut watchdog0) = Timer::new(dp.TIMG0, clock_control_config);
-  let (.., mut watchdog1) = Timer::new(dp.TIMG1, clock_control_config);
-  watchdog0.disable();
-  watchdog1.disable();
+  log::info!("Clock setup");
+  let clocks = ClockControl::boot_defaults(system.clock_control).freeze();
 
-  let gpios = dp.GPIO.split();
-  let mut pin = gpios.gpio36.into_analog();
-  let mut adc_config = Adc1Config::new();
-  adc_config.enable_pin(&pin, Attenuation::Attenuation11dB);
+  log::info!("Delay setup");
+  let mut delay = Delay::new(&clocks);
 
-  let analog = dp.SENS.split();
-  let mut adc = ADC::adc1(analog.adc1, adc_config).unwrap();
+  log::info!("GPIO setup");
+  let io = IO::new(dp.GPIO, dp.IO_MUX);
+
+  log::info!("GPIO13 setup");
+  let mut pin = io.pins.gpio13.into_pull_up_input();
+
+  log::info!("GPIO13 interrupt setup");
+  pin.listen(Event::LowLevel);
+
+  log::info!("GPIO13 interrupt enable");
+  pin.enable_input(true);
+
+  log::info!("GPIO13 pull-up enable");
+  pin.internal_pull_up(true);
 
   loop {
-    let raw: u16 = nb::block!(adc.read(&mut pin)).unwrap();
-    let reading = convert_to_volts(raw);
-    convert_to_fahrenheit(reading);
-    sleep(1.s());
+    log::info!("GPIO13 state: {}", pin.is_low().unwrap());
+    delay.delay_ms(1000 as u32);
   }
 }
 
-fn convert_to_fahrenheit(reading: f32) {
-  let celsius = reading / 0.01;
-  let fahrenheit = celsius * 1.8 + 32.0;
-  dprintln!("fahrenheit: {}, celsius: {}", fahrenheit, celsius);
-}
-
-fn convert_to_volts(value: u16) -> f32 {
-  // for some reason, the adc reading in the heltec = 4095 - value.
-  let reading = 4095 - value;
-  4.96 * reading as f32 / 4095.0
-}
-
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-  dprintln!("PANIC: {:?}", info);
-  loop {}
+#[interrupt]
+fn GPIO() {
+  log::info!("GPIO13 interrupt");
 }

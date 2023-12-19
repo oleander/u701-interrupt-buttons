@@ -13,15 +13,15 @@ opt-level = "s"
 debug = true    # Symbols are nice and they don't increase the size on Flash
 opt-level = "z"
 
-[features]
-default = ["std", "embassy", "esp-idf-svc/native"]
+# [features]
+# default = ["std", "embassy", "esp-idf-svc/native"]
 
-pio = ["esp-idf-svc/pio"]
-std = ["alloc", "esp-idf-svc/binstart", "esp-idf-svc/std"]
-alloc = ["esp-idf-svc/alloc"]
-nightly = ["esp-idf-svc/nightly"]
-experimental = ["esp-idf-svc/experimental"]
-embassy = ["esp-idf-svc/embassy-sync",  "esp-idf-svc/embassy-time-driver"]
+# pio = ["esp-idf-svc/pio"]
+# std = ["alloc", "esp-idf-svc/binstart", "esp-idf-svc/std"]
+# alloc = ["esp-idf-svc/alloc"]
+# nightly = ["esp-idf-svc/nightly"]
+# experimental = ["esp-idf-svc/experimental"]
+# embassy = ["esp-idf-svc/embassy-sync",  "esp-idf-svc/embassy-time-driver"]
 
 
 [dependencies]
@@ -35,13 +35,13 @@ critical-section = { version = "1.1.2", default-features = true }
 # esp32-hal = { version = "*", features = [ "rt", "vectored"] }
 esp-println = { version = "0.7.1", features = ["esp32"] }
 esp32-nimble = "0.4.0"
-esp32-hal = { git = "https://github.com/esp-rs/esp32-hal" }
+esp32-hal = "*"
 nb = "1.0.0"
 # embedded-hal = "*"
 
 [target.'cfg(target_arch = "riscv")'.dependencies]
 critical-section = "1.1.2"
-esp-idf-svc = { version = "0.47.3", default-features = false, features = ["nightly", "critical-section"] }
+# esp-idf-svc = { version = "0.47.3", default-features = false, features = ["nightly", "critical-section"] }
 # critical-section = { version = "1.1.2", features = ["restore-state-none"], default-features = false }
 riscv = { version = "0.10.1", features = ["critical-section-single-hart"] }
 esp-println = { version = "0.7.1", features = ["esp32c3"] }
