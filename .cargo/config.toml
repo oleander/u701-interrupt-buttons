@@ -2,10 +2,10 @@
 target = "xtensa-esp32-espidf"
 
 [target.riscv32imc-esp-espidf]
-# rustflags = ["--cfg", "espidf_time64", "-C", "default-linker-libraries"]
-rustflags = ["-C", "default-linker-libraries"]
+rustflags = ["--cfg", "espidf_time64", "-C", "default-linker-libraries"]
+# rustflags = ["-C", "default-linker-libraries"]
 runner = "espflash flash --monitor"
-linker = "ldproxy"
+# linker = "ldproxy"
 
 [unstable]
 build-std = ["std", "panic_abort"]

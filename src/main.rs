@@ -8,8 +8,8 @@ use esp32_hal::{
 
 #[entry]
 fn main() -> ! {
-  sys::link_patches();
-  svc::log::EspLogger::initialize_default();
+  // sys::link_patches();
+  // svc::log::EspLogger::initialize_default();
 
   log::info!("Peripherals initialized");
   let dp = Peripherals::take();

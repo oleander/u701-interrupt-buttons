@@ -28,6 +28,7 @@ opt-level = "z"
 log = { version = "0.4", default-features = false }
 lazy_static = "1.4.0"
 anyhow = "1.0.75"
+compiler_builtins = "0.1.105"
 
 [target.'cfg(target_arch = "xtensa")'.dependencies]
 critical-section = { version = "1.1.2", default-features = true }
@@ -47,6 +48,10 @@ riscv = { version = "0.10.1", features = ["critical-section-single-hart"] }
 esp-println = { version = "0.7.1", features = ["esp32c3"] }
 embedded-hal = "*"
 esp32c3-hal = "*"
+
+# [dependencies.compiler_builtins]
+# git = "https://github.com/rust-lang/compiler-builtins"
+# features = ["c"]
 
 [build-dependencies]
 embuild = "0.31.4"
