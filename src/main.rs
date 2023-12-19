@@ -44,7 +44,7 @@ enum Click {
 use lazy_static::*;
 
 pub mod media {
-  pub enum MediaCommand {
+  pub enum Command {
     VolumeDown,
     NextTrack,
     PrevTrack,
@@ -53,15 +53,15 @@ pub mod media {
     Eject
   }
 
-  impl MediaCommand {
+  impl Command {
     pub fn to_command(&self) -> [u8; 2] {
       match self {
-        MediaCommand::VolumeDown => [64, 0],
-        MediaCommand::NextTrack => [1, 0],
-        MediaCommand::PrevTrack => [2, 0],
-        MediaCommand::PlayPause => [8, 0],
-        MediaCommand::VolumeUp => [32, 0],
-        MediaCommand::Eject => [16, 0]
+        Command::VolumeDown => [64, 0],
+        Command::NextTrack => [1, 0],
+        Command::PrevTrack => [2, 0],
+        Command::PlayPause => [8, 0],
+        Command::VolumeUp => [32, 0],
+        Command::Eject => [16, 0]
       }
     }
   }
@@ -88,15 +88,15 @@ pub mod button {
 }
 
 lazy_static! {
-    pub static ref EVENT: HashMap<button::ID, media::MediaCommand> = {
+    pub static ref EVENT: HashMap<button::ID, media::Command> = {
         let mut table = HashMap::new();
 
-        table.insert(button::ID::A2, media::MediaCommand::VolumeDown);
-        // table.insert(Button::A3 as u8, MediaCommand::PrevTrack.to_command());
-        // table.insert(Button::A4 as u8, MediaCommand::PlayPause.to_command());
-        // table.insert(Button::B2 as u8, MediaCommand::VolumeUp.to_command());
-        // table.insert(Button::B3 as u8, MediaCommand::NextTrack.to_command());
-        // table.insert(Button::B4 as u8, MediaCommand::Eject.to_command());
+        table.insert(button::ID::A2, media::Command::VolumeDown);
+        // table.insert(Button::A3 as u8, Command::PrevTrack.to_command());
+        // table.insert(Button::A4 as u8, Command::PlayPause.to_command());
+        // table.insert(Button::B2 as u8, Command::VolumeUp.to_command());
+        // table.insert(Button::B3 as u8, Command::NextTrack.to_command());
+        // table.insert(Button::B4 as u8, Command::Eject.to_command());
 
         table
     };
