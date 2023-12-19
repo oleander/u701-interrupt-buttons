@@ -220,8 +220,6 @@ fn main() -> Result<(), EspError> {
   setup_button!(peripherals.pins.gpio13);
   setup_button!(peripherals.pins.gpio12);
 
-  use button::ID::*;
-
   loop {
     for event in events() {
       info!("Event: {:?}", event);
