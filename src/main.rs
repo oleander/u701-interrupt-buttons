@@ -1,14 +1,14 @@
 use esp_idf_svc::hal::gpio::{AnyInputPin, Input, InputPin, Pin};
 use button_driver::{Button as ButtonBox, ButtonConfig};
 use std::collections::HashMap;
-use std::time::Duration;
 use hal::prelude::Peripherals;
 use esp_idf_svc::{hal, sys};
 use hal::gpio::PinDriver;
+use std::time::Duration;
 use log::{info, warn};
-use sys::EspError;
 use std::sync::Mutex;
 use lazy_static::*;
+use sys::EspError;
 
 type Driver<'a> = PinDriver<'a, AnyInputPin, Input>;
 type Button<'a> = ButtonBox<Driver<'a>>;
