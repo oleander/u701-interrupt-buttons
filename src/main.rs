@@ -11,8 +11,11 @@ use sys::EspError;
 
 static M1: Mutex<RefCell<Option<PinDriver<Gpio12, Input>>>> = Mutex::new(RefCell::new(None));
 static M2: Mutex<RefCell<Option<PinDriver<Gpio13, Input>>>> = Mutex::new(RefCell::new(None));
+// 6 more buttons will be added
 
+static EVENT: Mutex<RefCell<Option<i32>>> = Mutex::new(RefCell::new(None));
 static STATE: Mutex<RefCell<Option<i32>>> = Mutex::new(RefCell::new(None));
+
 lazy_static! {
   static ref CHANNEL: (Mutex<Sender<i32>>, StdMutex<Receiver<i32>>) = {
     let (send, recv) = channel();
@@ -26,17 +29,26 @@ macro_rules! setup_button_interrupt {
   ($mutex:ident, $pin:expr) => {
     let mut btn = PinDriver::input($pin)?;
 
-    btn.set_interrupt_type(InterruptType::LowLevel)?;
+    // Trigger when button is pushed
+    btn.set_interrupt_type(InterruptType::AnyEdge)?;
+
+    // Default is pull up
     btn.set_pull(hal::gpio::Pull::Up)?;
 
     unsafe {
-      btn
-        .subscribe(|| {
+      // On click
+      btn.subscribe(|| {
           critical_section::with(|cs| {
             let mut bbrn = $mutex.borrow_ref_mut(cs);
             let btn = bbrn.as_mut().unwrap();
+
+            if btn.is_high() {
+              EVENT.borrow_ref_mut(cs).replace(btn.pin());
+            } else {
+              EVENT.borrow_ref_mut(cs).take();
+            }
+
             btn.enable_interrupt().unwrap();
-            STATE.borrow_ref_mut(cs).replace(btn.pin());
           });
         })
         .unwrap();
@@ -58,8 +70,20 @@ fn main() -> Result<(), EspError> {
 
   loop {
     critical_section::with(|cs| {
-      if let Some(pin) = STATE.borrow_ref_mut(cs).take() {
-        esp_println::println!("Button pressed: {:?}", pin);
+      let curr = EVENT.borrow_ref_mut(cs).take();
+      let prev = STATE.borrow_ref_mut(cs).take();
+
+      match (curr, prev) {
+        (Some(curr), Some(prev)) if curr == prev => {
+          // nop
+        }
+        (Some(curr), _) => {
+          STATE.borrow_ref_mut(cs).replace(curr);
+          esp_println::println!("Button {:?} pushed", curr);
+        }
+        (None, _) => {
+          // nop
+        }
       }
     });
 
