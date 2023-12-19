@@ -98,7 +98,9 @@ fn main() -> Result<(), EspError> {
         // A new button was pressed
         (Some(id), _) => {
           esp_println::println!("Button {:?} pushed", id);
-          keyboard.write(id.to_string().as_str());
+          if keyboard.connected() {
+            keyboard.write(id.to_string().as_str());
+          }
           STATE.borrow_ref_mut(cs).replace(id);
         },
 
