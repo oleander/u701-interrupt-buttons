@@ -31,7 +31,7 @@ macro_rules! setup_button {
   }};
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 enum Click {
   Holding(button::ID, Duration),
   Held(button::ID, Duration),
@@ -67,7 +67,7 @@ pub mod media {
 }
 
 pub mod button {
-  #[derive(Debug, Hash, PartialEq, Eq)]
+  #[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
   pub enum ID {
     M1 = 0x04, // Corresponds to BUTTON_1: Red (Meta)
     A2 = 0x50, // Corresponds to BUTTON_2: Black (Volume down)
@@ -175,23 +175,21 @@ fn main() -> Result<(), EspError> {
   setup_button!(peripherals.pins.gpio13);
   setup_button!(peripherals.pins.gpio12);
 
+  use button::ID::*;
+
   loop {
     for event in events() {
-      match event {
-        Click::Click(ref pid) => {
-          info!("Button {:?} clicked", pid);
+      match (event, state) {
+        (to @ Click::Click(M1 | M2), _) => {
+          info!("Meta button clicked: {:?}", to);
         },
-        Click::DoubleClick(ref pid) => {
-          info!("Button {:?} double clicked", pid);
+
+        (to @ Click::Click(_), from @ Click::Click(M1 | M2)) => {
+          info!("Combination button clicked: {:?} + {:?}", from, to);
         },
-        Click::TripleClick(ref pid) => {
-          info!("Button {:?} triple clicked", pid);
-        },
-        Click::Holding(ref pid, dur) => {
-          info!("Button {:?} holding for {:?}ms", pid, dur);
-        },
-        Click::Held(ref pid, dur) => {
-          info!("Button {:?} held for {:?}ms", pid, dur);
+
+        (to, from) => {
+          warn!("Unhandled transition: {:?} -> {:?}", from, to);
         }
       }
 
