@@ -1,9 +1,9 @@
 [build]
 target = "xtensa-esp32-espidf"
 
-[target.riscv32imc-esp-espidf]
-rustflags = ["--cfg", "espidf_time64", "-C", "default-linker-libraries"]
-# rustflags = ["-C", "default-linker-libraries"]
+[target.xtensa-esp32-espidf]
+# rustflags = ["--cfg", "espidf_time64", "-C", "default-linker-libraries"]
+rustflags = ["-C", "default-linker-libraries"]
 runner = "espflash flash --monitor"
 # linker = "ldproxy"
 
@@ -11,7 +11,6 @@ runner = "espflash flash --monitor"
 build-std = ["std", "panic_abort"]
 
 [env]
-MCU="esp32"
-# Note: this variable is not used by the pio builder (`cargo build --features pio`)
 ESP_IDF_VERSION = "v4.4.6"
+MCU="esp32"
 

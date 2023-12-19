@@ -1,15 +1,16 @@
 // #![no_std]
 #![no_main]
 
-use core::panic::PanicInfo;
-use esp32_hal::{
-  prelude::*, gpio::{Gpio13, PullUp, Input, Pin, Event}, clock::ClockControl, peripherals::Peripherals, Delay, IO
-};
+use esp32_hal::peripherals::Peripherals;
+use esp32_hal::clock::ClockControl;
+use esp32_hal::gpio::{Event, Pin};
+use esp32_hal::{Delay, IO};
+use esp32_hal::prelude::*;
+use log::log_enabled;
 
 #[entry]
 fn main() -> ! {
-  // sys::link_patches();
-  // svc::log::EspLogger::initialize_default();
+  log_enabled!(log::Level::Info);
 
   log::info!("Peripherals initialized");
   let dp = Peripherals::take();

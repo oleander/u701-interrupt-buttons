@@ -1,13 +1,15 @@
-use hal::{gpio::PinDriver, prelude::Peripherals};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Mutex as StdMutex;
-use svc::{sys, hal::gpio::*};
+use hal::prelude::Peripherals;
 use lazy_static::lazy_static;
 use critical_section::Mutex;
+use hal::gpio::PinDriver;
 use std::cell::RefCell;
 use esp_idf_svc as svc;
+use svc::hal::gpio::*;
 use esp_idf_svc::hal;
 use sys::EspError;
+use svc::sys;
 
 mod keyboard;
 use keyboard::Keyboard;
