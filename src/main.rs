@@ -178,22 +178,24 @@ fn main() -> Result<(), EspError> {
   loop {
     for event in events() {
       match event {
-        Click::Click(pid) => {
+        Click::Click(ref pid) => {
           info!("Button {:?} clicked", pid);
         },
-        Click::DoubleClick(pid) => {
+        Click::DoubleClick(ref pid) => {
           info!("Button {:?} double clicked", pid);
         },
-        Click::TripleClick(pid) => {
+        Click::TripleClick(ref pid) => {
           info!("Button {:?} triple clicked", pid);
         },
-        Click::Holding(pid, dur) => {
+        Click::Holding(ref pid, dur) => {
           info!("Button {:?} holding for {:?}ms", pid, dur);
         },
-        Click::Held(pid, dur) => {
+        Click::Held(ref pid, dur) => {
           info!("Button {:?} held for {:?}ms", pid, dur);
         }
       }
+
+      state = event;
     }
   }
 }
