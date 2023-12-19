@@ -61,7 +61,7 @@ fn main() {
   let mut button = io.pins.gpio9.into_pull_down_input();
 
   log::info!("Setup led");
-  let mut led = io.pins.gpio5.into_push_pull_output();
+  let mut led = io.pins.gpio3.into_push_pull_output();
 
   log::info!("Setup button interrupt");
   button.listen(Event::FallingEdge);
