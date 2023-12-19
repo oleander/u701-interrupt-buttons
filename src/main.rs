@@ -1,8 +1,6 @@
 use std::collections::HashMap;
-
-use esp_idf_svc::hal::gpio::{AnyInputPin, Input, InputPin};
+use esp_idf_svc::hal::gpio::{AnyInputPin, Input, InputPin, Pin};
 use button_driver::{Button, ButtonConfig};
-use esp_idf_svc::hal::gpio::Pin;
 use hal::prelude::Peripherals;
 use esp_idf_svc::{hal, sys};
 use esp_idf_svc::hal::gpio;
