@@ -1,4 +1,7 @@
 use button_driver::{Button, ButtonConfig};
+use esp_idf_svc::hal::gpio::AnyInputPin;
+use esp_idf_svc::hal::gpio::Input;
+use esp_idf_svc::hal::gpio::InputPin;
 use hal::prelude::Peripherals;
 use hal::gpio::PinDriver;
 use esp_idf_svc::sys;
@@ -11,25 +14,31 @@ fn main() -> Result<(), EspError> {
   esp_idf_svc::log::EspLogger::initialize_default();
 
   let peripherals = Peripherals::take().unwrap();
-  let pin = PinDriver::input(peripherals.pins.gpio9)?;
+  let config = ButtonConfig::default();
+  let mut buttons: Vec<button_driver::Button<PinDriver<AnyInputPin, Input>>> = Vec::new();
 
-  let mut button = Button::new(pin, ButtonConfig::default());
+  let pin = peripherals.pins.gpio13;
+  let dpin = pin.downgrade_input();
+  let pin1 = PinDriver::input(dpin)?;
+  buttons.push(Button::new(pin1.into(), config));
+  // buttons.push(Button::new(PinDriver::input(peripherals.pins.gpio12)?, config));
 
-  loop {
-    button.tick();
+  // loop {
+  //   button.tick();
 
-    if button.is_clicked() {
-      info!("Click");
-    } else if button.is_double_clicked() {
-      info!("Double click");
-    } else if button.is_triple_clicked() {
-      info!("Triple click");
-    } else if let Some(dur) = button.current_holding_time() {
-      info!("Held for {dur:?}");
-    } else if let Some(dur) = button.held_time() {
-      info!("Total holding time {dur:?}");
-    }
+  //   if button.is_clicked() {
+  //     info!("Click");
+  //   } else if button.is_double_clicked() {
+  //     info!("Double click");
+  //   } else if button.is_triple_clicked() {
+  //     info!("Triple click");
+  //   } else if let Some(dur) = button.current_holding_time() {
+  //     info!("Held for {dur:?}");
+  //   } else if let Some(dur) = button.held_time() {
+  //     info!("Total holding time {dur:?}");
+  //   }
 
-    button.reset();
-  }
+  //   button.reset();
+  // }
+  Ok(())
 }
