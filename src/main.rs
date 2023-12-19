@@ -1,100 +1,51 @@
-#![allow(dead_code)]
-#![allow(unused_variables)]
-#![feature(lazy_cell)]
-
-use std::sync::atomic::AtomicUsize;
-use std::collections::HashMap;
 use critical_section::Mutex;
-use std::sync::LazyLock;
 use std::cell::RefCell;
-use esp32c3_hal::{
-  clock::ClockControl, gpio::{Event, Gpio9, Input, PullDown, IO}, interrupt, peripherals::{self, Peripherals}, prelude::*, riscv, timer::TimerGroup, Delay, Rtc
-};
+use esp_idf_svc::hal;
+use esp_idf_svc::sys;
+use esp_println;
+use hal::{gpio::InterruptType, prelude::Peripherals};
 
-static BUTTONS_IDS: LazyLock<Mutex<HashMap<u8, usize>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
-static BUTTON: Mutex<RefCell<Option<Gpio9<Input<PullDown>>>>> = Mutex::new(RefCell::new(None));
-static PROCESSED_STATES: AtomicUsize = AtomicUsize::new(0);
-static BUTTON_STATES: AtomicUsize = AtomicUsize::new(0);
+static LED: Mutex<RefCell<Option<hal::gpio::PinDriver<'static, hal::gpio::Gpio2, hal::gpio::Output>>>> =
+  Mutex::new(RefCell::new(None));
+static BUTTON: Mutex<RefCell<Option<hal::gpio::PinDriver<'static, hal::gpio::Gpio9, hal::gpio::Input>>>> =
+  Mutex::new(RefCell::new(None));
 
-fn main() {
-  esp_idf_svc::sys::link_patches();
+fn main() -> anyhow::Result<()> {
+  sys::link_patches();
   esp_idf_svc::log::EspLogger::initialize_default();
 
-  log::info!("Hello, world!");
+  let peripherals = Peripherals::take().unwrap();
 
-  log::info!("Fetching peripherals");
-  let peripherals = Peripherals::take();
+  let mut button = hal::gpio::PinDriver::input(peripherals.pins.gpio9)?;
+  let mut led = hal::gpio::PinDriver::output(peripherals.pins.gpio2)?;
+  led.set_low()?;
 
-  log::info!("Setup system");
-  let system = peripherals.SYSTEM.split();
 
-  log::info!("Setup clocks");
-  let clocks = ClockControl::boot_defaults(system.clock_control).freeze();
+  button.set_interrupt_type(InterruptType::NegEdge)?;
 
-  log::info!("Setup RTC");
-  let mut rtc = Rtc::new(peripherals.RTC_CNTL);
-
-  log::info!("Setup watchdog 1");
-  let timer_group0 = TimerGroup::new(peripherals.TIMG0, &clocks);
-  let mut wdt0 = timer_group0.wdt;
-
-  log::info!("Setup watchdog 2");
-  let timer_group1 = TimerGroup::new(peripherals.TIMG1, &clocks);
-  let mut wdt1 = timer_group1.wdt;
-
-  log::info!("Disable watchdog swd");
-  rtc.swd.disable();
-
-  log::info!("Disable watchdog rwdt");
-  rtc.rwdt.disable();
-
-  log::info!("Disable watchdog wdt0");
-  wdt0.disable();
-
-  log::info!("Disable watchdog wdt1");
-  wdt1.disable();
-
-  log::info!("Setup IO");
-  let io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
-
-  log::info!("Setup button");
-  let mut button = io.pins.gpio9.into_pull_down_input();
-
-  log::info!("Setup led");
-  let mut led = io.pins.gpio3.into_push_pull_output();
-
-  log::info!("Setup button interrupt");
-  button.listen(Event::FallingEdge);
-
-  log::info!("Setup button interrupt");
-  critical_section::with(|cs| BUTTON.borrow_ref_mut(cs).replace(button));
-
-  log::info!("Setup button interrupt");
-  interrupt::enable(peripherals::Interrupt::GPIO, interrupt::Priority::Priority3).unwrap();
-
-  log::info!("Setup button interrupt");
   unsafe {
-    riscv::interrupt::enable();
+    button.subscribe(on_button_a_pushed)?;
   }
 
-  log::info!("Setup delay");
-  let mut delay = Delay::new(&clocks);
+  critical_section::with(|cs| LED.borrow_ref_mut(cs).replace(led));
+  critical_section::with(|cs| BUTTON.borrow_ref_mut(cs).replace(button));
 
-  log::info!("Entering loop");
   loop {
-    log::info!("Toggle LED");
-    led.toggle().unwrap();
-
-    log::info!("Wait for 500ms");
-    delay.delay_ms(500u32);
+    critical_section::with(|cs| {
+      esp_println::println!("LED");
+      if let Some(led) = LED.borrow_ref_mut(cs).as_mut() {
+        match led.toggle() {
+          Ok(_) => esp_println::println!("led toggled"),
+          Err(e) => esp_println::println!("led toggle failed due to {:?}", e)
+        }
+      }
+    });
   }
 }
 
-#[interrupt]
-fn GPIO() {
-  esp_println::println!("GPIO interrupt (outside)");
+fn on_button_a_pushed() {
+  esp_println::println!("button a pushed");
   critical_section::with(|cs| {
-    esp_println::println!("GPIO interrupt (inside)");
-    BUTTON.borrow_ref_mut(cs).as_mut().unwrap().clear_interrupt();
-  });
+    BUTTON.borrow_ref_mut(cs).as_mut().unwrap().enable_interrupt().unwrap();
+  })
 }

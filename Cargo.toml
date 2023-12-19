@@ -23,12 +23,15 @@ nightly = ["esp-idf-svc/nightly"]
 experimental = ["esp-idf-svc/experimental"]
 embassy = ["esp-idf-svc/embassy-sync",  "esp-idf-svc/embassy-time-driver"]
 
+# esp32c3-hal = "*"
+# esp-println = { version = "0.7.1", features = ["esp32c3"] }
+
 [dependencies]
 log = { version = "0.4", default-features = false }
 esp-idf-svc = { version = "0.47.3", default-features = false, features = ["nightly"] }
-esp32c3-hal = "*"
 critical-section = "1.1.2"
-esp-println = { version = "0.7.1", features = ["esp32c3"] }
+esp-println = { version = "0.7.1", features = ["esp32"] }
+anyhow = "1.0.75"
 # riscv = { version = "0.10.1", features = ["critical-section-single-hart"] }
 # critical-section = { version = "1.1.2", features = ["restore-state-none"], default-features = false }
 # embedded-hal = "*"
