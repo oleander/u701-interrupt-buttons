@@ -291,4 +291,8 @@ impl Keyboard {
     self.input_keyboard.lock().set_from(keys).notify();
     hal::delay::Ets::delay_ms(7);
   }
+
+  async pub do_stuff(&self) {
+    self.
+  }
 }
