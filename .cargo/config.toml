@@ -2,8 +2,9 @@
 target = "xtensa-esp32-espidf"
 
 [target.xtensa-esp32-espidf]
-# rustflags = ["--cfg", "espidf_time64", "-C", "default-linker-libraries"]
-rustflags = ["-C", "default-linker-libraries"]
+linker = "ldproxy"
+# rustflags = ["--cfg", "espidf_time64"]
+# rustflags = ["-C", "default-linker-libraries"]
 runner = "espflash flash --monitor"
 # linker = "ldproxy"
 
@@ -11,6 +12,6 @@ runner = "espflash flash --monitor"
 build-std = ["std", "panic_abort"]
 
 [env]
-ESP_IDF_VERSION = "v4.4.6"
+# ESP_IDF_VERSION = "release/v5.0"
 MCU="esp32"
 

@@ -1,51 +1,98 @@
-// #![no_std]
-#![no_main]
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::Mutex as StdMutex;
+use esp32_hal::gpio::{Gpio12, Input, Gpio13};
+use hal::prelude::Peripherals;
+use lazy_static::lazy_static;
+use critical_section::Mutex;
+use hal::gpio::PinDriver;
+use std::cell::RefCell;
+use esp_idf_svc as svc;
+use svc::hal::gpio::*;
+use esp_idf_svc::hal;
+use sys::EspError;
+use svc::sys;
 
-use esp32_hal::peripherals::Peripherals;
-use esp32_hal::clock::ClockControl;
-use esp32_hal::gpio::{Event, Pin};
-use esp32_hal::{Delay, IO};
-use esp32_hal::prelude::*;
-use log::log_enabled;
+mod keyboard;
+use keyboard::Keyboard;
 
-#[entry]
-fn main() -> ! {
-  log_enabled!(log::Level::Info);
+static M1: Mutex<RefCell<Option<PinDriver<Gpio12, Input>>>> = Mutex::new(RefCell::new(None));
+static M2: Mutex<RefCell<Option<PinDriver<Gpio13, Input>>>> = Mutex::new(RefCell::new(None));
+// 6 more buttons will be added
 
-  log::info!("Peripherals initialized");
-  let dp = Peripherals::take();
+static EVENT: Mutex<RefCell<Option<i32>>> = Mutex::new(RefCell::new(None));
+static STATE: Mutex<RefCell<Option<i32>>> = Mutex::new(RefCell::new(None));
 
-  log::info!("System setup");
-  let system = dp.SYSTEM.split();
-
-  log::info!("Clock setup");
-  let clocks = ClockControl::boot_defaults(system.clock_control).freeze();
-
-  log::info!("Delay setup");
-  let mut delay = Delay::new(&clocks);
-
-  log::info!("GPIO setup");
-  let io = IO::new(dp.GPIO, dp.IO_MUX);
-
-  log::info!("GPIO13 setup");
-  let mut pin = io.pins.gpio13.into_pull_up_input();
-
-  log::info!("GPIO13 interrupt setup");
-  pin.listen(Event::LowLevel);
-
-  log::info!("GPIO13 interrupt enable");
-  pin.enable_input(true);
-
-  log::info!("GPIO13 pull-up enable");
-  pin.internal_pull_up(true);
-
-  loop {
-    log::info!("GPIO13 state: {}", pin.is_low().unwrap());
-    delay.delay_ms(1000 as u32);
-  }
+lazy_static! {
+  static ref CHANNEL: (Mutex<Sender<i32>>, StdMutex<Receiver<i32>>) = {
+    let (send, recv) = channel();
+    let recv = StdMutex::new(recv);
+    let send = Mutex::new(send);
+    (send, recv)
+  };
 }
 
-#[interrupt]
-fn GPIO() {
-  log::info!("GPIO13 interrupt");
+macro_rules! setup_button_interrupt {
+  ($mutex:ident, $pin:expr) => {
+    let mut btn = PinDriver::input($pin)?;
+
+    // Trigger when button is pushed
+    btn.set_interrupt_type(InterruptType::LowLevel)?;
+
+    // Default is pull up
+    btn.set_pull(hal::gpio::Pull::Up)?;
+
+    unsafe {
+      // On click
+      btn
+        .subscribe(|| {
+          critical_section::with(|cs| {
+            let mut bbrn = $mutex.borrow_ref_mut(cs);
+            let btn = bbrn.as_mut().unwrap();
+            EVENT.borrow_ref_mut(cs).replace(btn.pin());
+            btn.enable_interrupt().unwrap();
+          });
+        })
+        .unwrap();
+    }
+
+    btn.enable_interrupt()?;
+    critical_section::with(|cs| $mutex.borrow_ref_mut(cs).replace(btn));
+  };
+}
+
+fn main() -> Result<(), EspError> {
+  sys::link_patches();
+  svc::log::EspLogger::initialize_default();
+
+  let peripherals = Peripherals::take().unwrap();
+  let mut keyboard = Keyboard::new();
+
+  setup_button_interrupt!(M1, peripherals.pins.gpio12);
+  setup_button_interrupt!(M2, peripherals.pins.gpio13);
+
+  loop {
+    critical_section::with(|cs| {
+      let curr = EVENT.borrow_ref_mut(cs).take();
+      let prev = STATE.borrow_ref_mut(cs).take();
+
+      match (curr, prev) {
+        (Some(curr), Some(prev)) if curr == prev => {
+          // Event has already been processed without a relase
+        },
+
+        // A new button was pressed
+        (Some(id), _) => {
+          esp_println::println!("Button {:?} pushed", id);
+          keyboard.write(id.to_string().as_str());
+          STATE.borrow_ref_mut(cs).replace(id);
+        },
+
+        (None, _) => {
+          // No button pressed
+        }
+      }
+    });
+
+    hal::delay::FreeRtos::delay_ms(50);
+  }
 }
