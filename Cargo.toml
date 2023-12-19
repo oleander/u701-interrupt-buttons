@@ -28,7 +28,7 @@ embassy = ["esp-idf-svc/embassy-sync",  "esp-idf-svc/embassy-time-driver"]
 
 [dependencies]
 log = { version = "0.4", default-features = false }
-esp-idf-svc = { version = "0.47.3", default-features = false, features = ["nightly"] }
+esp-idf-svc = { version = "0.47.3", default-features = false, features = ["nightly", "critical-section"] }
 critical-section = "1.1.2"
 esp-println = { version = "0.7.1", features = ["esp32"] }
 anyhow = "1.0.75"
