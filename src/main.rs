@@ -8,12 +8,14 @@ use hal::gpio::PinDriver;
 use log::{info, warn};
 use sys::EspError;
 use std::sync::Mutex;
+use lazy_static::*;
 
 type Driver<'a> = PinDriver<'a, AnyInputPin, Input>;
 type Button<'a> = ButtonBox<Driver<'a>>;
 
 lazy_static::lazy_static! {
   static ref BUTTONS: Mutex<HashMap<i32, Button<'static>>> = Mutex::new(HashMap::new());
+  static ref STATE: Mutex<Click> = Mutex::new(Click::Click(button::ID::A2));
 }
 
 macro_rules! setup_button {
@@ -39,8 +41,6 @@ enum Click {
   TripleClick(button::ID),
   Click(button::ID)
 }
-
-use lazy_static::*;
 
 pub mod media {
   #[derive(Debug, Copy, Clone)]
@@ -114,11 +114,11 @@ lazy_static! {
         let mut table = HashMap::new();
 
         table.insert(button::ID::A2, media::Command::VolumeDown);
-        // table.insert(Button::A3 as u8, Command::PrevTrack.to_command());
-        // table.insert(Button::A4 as u8, Command::PlayPause.to_command());
-        // table.insert(Button::B2 as u8, Command::VolumeUp.to_command());
-        // table.insert(Button::B3 as u8, Command::NextTrack.to_command());
-        // table.insert(Button::B4 as u8, Command::Eject.to_command());
+        table.insert(button::ID::A3, media::Command::PrevTrack);
+        table.insert(button::ID::A4, media::Command::PlayPause);
+        table.insert(button::ID::B2, media::Command::VolumeUp);
+        table.insert(button::ID::B3, media::Command::NextTrack);
+        table.insert(button::ID::B4, media::Command::Eject);
 
         table
     };
@@ -127,20 +127,20 @@ lazy_static! {
         let mut meta1 = HashMap::new();
 
         meta1.insert(button::ID::A2, 1); // '1' + 48 = 'a'
-        // meta1.insert(Button::A3 as u8, 1); // '1' + 49 = 'b'
-        // meta1.insert(Button::A4 as u8, 2); // '1' + 50 = 'c'
-        // meta1.insert(Button::B2 as u8, 3); // '1' + 51 = 'd'
-        // meta1.insert(Button::B3 as u8, 4); // '1' + 52 = 'e'
-        // meta1.insert(Button::B4 as u8, 5); // '1' + 53 = 'f'
+        meta1.insert(button::ID::A3, 2); // '1' + 49 = 'b'
+        meta1.insert(button::ID::A4, 3); // '1' + 50 = 'c'
+        meta1.insert(button::ID::B2, 4); // '1' + 51 = 'd'
+        meta1.insert(button::ID::B3, 5); // '1' + 52 = 'e'
+        meta1.insert(button::ID::B4, 6); // '1' + 53 = 'f'
 
         let mut meta2 = HashMap::new();
         meta2.insert(button::ID::A2, 6); // '1' + 0 = '1'
-        // meta2.insert(Button::A3 as u8, 7); // '1' + 1 = '2'
-        // meta2.insert(Button::A4 as u8, 8); // '1' + 2 = '3'
-        // meta2.insert(Button::B2 as u8, 9); // '1' + 3 = '4'
-        // meta2.insert(Button::B3 as u8, 10); // '1' + 4 = '5'
-        // meta2.insert(Button::B4 as u8, 11); // '1' + 5 = '6'
-//
+        meta2.insert(button::ID::A3, 7); // '1' + 1 = '2'
+        meta2.insert(button::ID::A4, 8); // '1' + 2 = '3'
+        meta2.insert(button::ID::B2, 9); // '1' + 3 = '4'
+        meta2.insert(button::ID::B3, 10); // '1' + 4 = '5'
+        meta2.insert(button::ID::B4, 11); // '1' + 5 = '6'
+
         let mut table = HashMap::new();
         table.insert(button::ID::M1, meta1);
         table.insert(button::ID::M2, meta2);
@@ -148,6 +148,7 @@ lazy_static! {
     };
 }
 
+// Converts button events into click events
 fn clicks() -> Vec<Click> {
   let mut events = Vec::new();
 
@@ -172,10 +173,11 @@ fn clicks() -> Vec<Click> {
   events
 }
 
+// Converts click events into button events that can later be used to trigger commands
 fn events() -> Vec<Packet> {
+  let mut state = STATE.lock().unwrap();
   let mut events = Vec::new();
   use crate::button::ID::*;
-  let mut state = STATE.lock().unwrap();
 
   for event in clicks() {
     match (event, state.clone()) {
@@ -183,8 +185,9 @@ fn events() -> Vec<Packet> {
         info!("Meta button clicked: {:?}", to);
       },
 
-      (Click::Click(bid), Click::Click(mid @ (M1 | M2))) => {
+      (from @ Click::Click(bid), to @ Click::Click(mid @ (M1 | M2))) => {
         META.get(&mid).and_then(|meta| meta.get(&bid)).map(|shortcut| {
+          info!("Clicked: {:?} + {:?}", from, to);
           events.push(Packet::Shortcut(*shortcut));
         });
       },
@@ -207,10 +210,6 @@ fn events() -> Vec<Packet> {
   events
 }
 
-lazy_static! {
-  static ref STATE: Mutex<Click> = Mutex::new(Click::Click(button::ID::A2));
-}
-
 fn main() -> Result<(), EspError> {
   sys::link_patches();
   esp_idf_svc::log::EspLogger::initialize_default();
@@ -219,6 +218,7 @@ fn main() -> Result<(), EspError> {
 
   setup_button!(peripherals.pins.gpio13);
   setup_button!(peripherals.pins.gpio12);
+  setup_button!(peripherals.pins.gpio9);
 
   loop {
     for event in events() {
