@@ -31,13 +31,99 @@ macro_rules! setup_button {
   }};
 }
 
+#[derive(Debug)]
 enum Click {
-  Click(i32),
-  DoubleClick(i32),
-  TripleClick(i32),
   Holding(i32, Duration),
   Held(i32, Duration),
-  Unknown(i32)
+  DoubleClick(i32),
+  TripleClick(i32),
+  Unknown(i32),
+  Click(i32)
+}
+
+use lazy_static::*;
+
+pub mod media {
+  pub enum MediaCommand {
+    VolumeDown,
+    NextTrack,
+    PrevTrack,
+    PlayPause,
+    VolumeUp,
+    Eject
+  }
+
+  impl MediaCommand {
+    pub fn to_command(&self) -> [u8; 2] {
+      match self {
+        MediaCommand::VolumeDown => [64, 0],
+        MediaCommand::NextTrack => [1, 0],
+        MediaCommand::PrevTrack => [2, 0],
+        MediaCommand::PlayPause => [8, 0],
+        MediaCommand::VolumeUp => [32, 0],
+        MediaCommand::Eject => [16, 0]
+      }
+    }
+  }
+}
+
+pub mod button {
+  #[derive(Debug, Hash, PartialEq, Eq)]
+  pub enum ID {
+    M1 = 0x04, // Corresponds to BUTTON_1: Red (Meta)
+    A2 = 0x50, // Corresponds to BUTTON_2: Black (Volume down)
+    A3 = 0x51, // Corresponds to BUTTON_3: Blue (Prev track)
+    A4 = 0x52, // Corresponds to BUTTON_4: Black (Play/Pause)
+    M2 = 0x29, // Corresponds to BUTTON_5: Red (Meta)
+    B2 = 0x4F, // Corresponds to BUTTON_6: Black (Volume up)
+    B3 = 0x05, // Corresponds to BUTTON_7: Blue (Next track)
+    B4 = 0x28  // Corresponds to BUTTON_8: Black (Toggle AC)
+  }
+
+  impl From<ID> for i32 {
+    fn from(id: ID) -> Self {
+      id as Self
+    }
+  }
+}
+
+lazy_static! {
+    pub static ref EVENT: HashMap<button::ID, media::MediaCommand> = {
+        let mut table = HashMap::new();
+
+        table.insert(button::ID::A2, media::MediaCommand::VolumeDown);
+        // table.insert(Button::A3 as u8, MediaCommand::PrevTrack.to_command());
+        // table.insert(Button::A4 as u8, MediaCommand::PlayPause.to_command());
+        // table.insert(Button::B2 as u8, MediaCommand::VolumeUp.to_command());
+        // table.insert(Button::B3 as u8, MediaCommand::NextTrack.to_command());
+        // table.insert(Button::B4 as u8, MediaCommand::Eject.to_command());
+
+        table
+    };
+
+    pub static ref META: HashMap<button::ID, HashMap<button::ID, u8>> = {
+        let mut meta1 = HashMap::new();
+
+        meta1.insert(button::ID::A2, 1); // '1' + 48 = 'a'
+        // meta1.insert(Button::A3 as u8, 1); // '1' + 49 = 'b'
+        // meta1.insert(Button::A4 as u8, 2); // '1' + 50 = 'c'
+        // meta1.insert(Button::B2 as u8, 3); // '1' + 51 = 'd'
+        // meta1.insert(Button::B3 as u8, 4); // '1' + 52 = 'e'
+        // meta1.insert(Button::B4 as u8, 5); // '1' + 53 = 'f'
+
+        let mut meta2 = HashMap::new();
+        meta2.insert(button::ID::A2, 6); // '1' + 0 = '1'
+        // meta2.insert(Button::A3 as u8, 7); // '1' + 1 = '2'
+        // meta2.insert(Button::A4 as u8, 8); // '1' + 2 = '3'
+        // meta2.insert(Button::B2 as u8, 9); // '1' + 3 = '4'
+        // meta2.insert(Button::B3 as u8, 10); // '1' + 4 = '5'
+        // meta2.insert(Button::B4 as u8, 11); // '1' + 5 = '6'
+//
+        let mut table = HashMap::new();
+        table.insert(button::ID::M1, meta1);
+        table.insert(button::ID::M2, meta2);
+        table
+    };
 }
 
 fn events() -> Vec<Click> {
