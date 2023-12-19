@@ -1,111 +1,62 @@
-use hal::{gpio::PinDriver, prelude::Peripherals};
-use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::Mutex as StdMutex;
-use svc::{sys, hal::gpio::*};
-use lazy_static::lazy_static;
-use critical_section::Mutex;
-use std::cell::RefCell;
-use esp_idf_svc as svc;
-use esp_idf_svc::hal;
-use sys::EspError;
+#![no_std]
+#![no_main]
 
-mod keyboard;
-use keyboard::Keyboard;
+use core::panic::PanicInfo;
+use esp32_hal::{
+  clock_control::{sleep, ClockControl, XTAL_FREQUENCY_AUTO}, dport::Split, dprintln, prelude::*, target, timer::Timer
+};
+use esp32_hal::analog::config::{Adc1Config, Attenuation};
+use esp32_hal::analog::adc::ADC;
+use esp32_hal::target::EFUSE;
+use esp32_hal::efuse::Efuse;
 
-static M1: Mutex<RefCell<Option<PinDriver<Gpio12, Input>>>> = Mutex::new(RefCell::new(None));
-static M2: Mutex<RefCell<Option<PinDriver<Gpio13, Input>>>> = Mutex::new(RefCell::new(None));
-// 6 more buttons will be added
+#[entry]
+fn main() -> ! {
+  let dp = target::Peripherals::take().expect("failed to acquire peripherals");
+  let (_, dport_clock_control) = dp.DPORT.split();
 
-static EVENT: Mutex<RefCell<Option<i32>>> = Mutex::new(RefCell::new(None));
-static STATE: Mutex<RefCell<Option<i32>>> = Mutex::new(RefCell::new(None));
+  let clock_control = ClockControl::new(dp.RTCCNTL, dp.APB_CTRL, dport_clock_control, XTAL_FREQUENCY_AUTO).unwrap();
 
-lazy_static! {
-  static ref CHANNEL: (Mutex<Sender<i32>>, StdMutex<Receiver<i32>>) = {
-    let (send, recv) = channel();
-    let recv = StdMutex::new(recv);
-    let send = Mutex::new(send);
-    (send, recv)
-  };
-}
+  // disable RTC watchdog
+  let (clock_control_config, mut watchdog) = clock_control.freeze().unwrap();
+  watchdog.disable();
 
-macro_rules! setup_button_interrupt {
-  ($mutex:ident, $pin:expr) => {
-    let mut btn = PinDriver::input($pin)?;
+  // disable MST watchdogs
+  let (.., mut watchdog0) = Timer::new(dp.TIMG0, clock_control_config);
+  let (.., mut watchdog1) = Timer::new(dp.TIMG1, clock_control_config);
+  watchdog0.disable();
+  watchdog1.disable();
 
-    // Trigger when button is pushed
-    btn.set_interrupt_type(InterruptType::LowLevel)?;
+  let gpios = dp.GPIO.split();
+  let mut pin = gpios.gpio36.into_analog();
+  let mut adc_config = Adc1Config::new();
+  adc_config.enable_pin(&pin, Attenuation::Attenuation11dB);
 
-    // Default is pull up
-    btn.set_pull(hal::gpio::Pull::Up)?;
-
-    unsafe {
-      // On click
-      btn
-        .subscribe(|| {
-          critical_section::with(|cs| {
-            let mut bbrn = $mutex.borrow_ref_mut(cs);
-            let btn = bbrn.as_mut().unwrap();
-
-            if btn.is_high() {
-              EVENT.borrow_ref_mut(cs).replace(btn.pin());
-            } else {
-              EVENT.borrow_ref_mut(cs).replace(0);
-            }
-
-            btn.enable_interrupt().unwrap();
-          });
-        })
-        .unwrap();
-    }
-
-    btn.enable_interrupt()?;
-    critical_section::with(|cs| $mutex.borrow_ref_mut(cs).replace(btn));
-  };
-}
-
-fn main() -> Result<(), EspError> {
-  sys::link_patches();
-  svc::log::EspLogger::initialize_default();
-
-  let peripherals = Peripherals::take().unwrap();
-  let mut keyboard = Keyboard::new();
-
-  setup_button_interrupt!(M1, peripherals.pins.gpio12);
-  setup_button_interrupt!(M2, peripherals.pins.gpio13);
+  let analog = dp.SENS.split();
+  let mut adc = ADC::adc1(analog.adc1, adc_config).unwrap();
 
   loop {
-    critical_section::with(|cs| {
-      let curr = EVENT.borrow_ref_mut(cs).take();
-      let prev = STATE.borrow_ref_mut(cs).take();
-
-      match (curr, prev) {
-        (Some(curr), Some(prev)) if curr == prev => {
-          // Event has already been processed without a relase
-        },
-
-        // Button was released
-        (Some(0), Some(id)) => {
-          esp_println::println!("Button released: {:?}", id);
-        },
-
-        // Button was released but no previous state
-        (Some(0), None) => {
-          esp_println::println!("[BUG] Button released but no previous state");
-        },
-
-        // A new button was pressed
-        (Some(id), _) => {
-          esp_println::println!("Button {:?} pushed", id);
-          keyboard.write(id.to_string().as_str());
-          STATE.borrow_ref_mut(cs).replace(id);
-        },
-
-        (None, _) => {
-          // No button pressed
-        }
-      }
-    });
-
-    hal::delay::FreeRtos::delay_ms(50);
+    let raw: u16 = nb::block!(adc.read(&mut pin)).unwrap();
+    let reading = convert_to_volts(raw);
+    convert_to_fahrenheit(reading);
+    sleep(1.s());
   }
+}
+
+fn convert_to_fahrenheit(reading: f32) {
+  let celsius = reading / 0.01;
+  let fahrenheit = celsius * 1.8 + 32.0;
+  dprintln!("fahrenheit: {}, celsius: {}", fahrenheit, celsius);
+}
+
+fn convert_to_volts(value: u16) -> f32 {
+  // for some reason, the adc reading in the heltec = 4095 - value.
+  let reading = 4095 - value;
+  4.96 * reading as f32 / 4095.0
+}
+
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+  dprintln!("PANIC: {:?}", info);
+  loop {}
 }
