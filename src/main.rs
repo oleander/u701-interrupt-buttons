@@ -33,7 +33,7 @@ macro_rules! setup_button_interrupt {
     let mut btn = PinDriver::input($pin)?;
 
     // Trigger when button is pushed
-    btn.set_interrupt_type(InterruptType::AnyEdge)?;
+    btn.set_interrupt_type(InterruptType::LowLevel)?;
 
     // Default is pull up
     btn.set_pull(hal::gpio::Pull::Up)?;
