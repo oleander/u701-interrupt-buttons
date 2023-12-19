@@ -63,6 +63,36 @@ macro_rules! setup_button_interrupt {
   };
 }
 
+fn event_id() -> Option<i32> {
+  critical_section::with(|cs| {
+    let curr = EVENT.borrow_ref_mut(cs).take();
+    let prev = STATE.borrow_ref_mut(cs).take();
+
+    // If no event, return
+    match (curr, prev) {
+      // No new event
+      (None, Some(prev)) => {
+        STATE.borrow_ref_mut(cs).replace(prev);
+        None
+      },
+
+      // Same as previous event
+      (Some(curr), Some(prev)) if curr == prev => {
+        STATE.borrow_ref_mut(cs).replace(prev);
+        None
+      },
+
+      // New event
+      (Some(curr), _) => {
+        STATE.borrow_ref_mut(cs).replace(curr);
+        Some(curr)
+      }
+
+      (None, None) => None
+    }
+  })
+}
+
 fn main() -> Result<(), EspError> {
   sys::link_patches();
   svc::log::EspLogger::initialize_default();
@@ -82,41 +112,21 @@ fn main() -> Result<(), EspError> {
 
   // let mut watchdog = driver.watch_current_task()?;
 
+  log::info!("Starting loop");
   loop {
-    critical_section::with(|cs| {
-      let curr = EVENT.borrow_ref_mut(cs).take();
-      let prev = STATE.borrow_ref_mut(cs).take();
+    // watchdog.feed().unwrap();
 
-      // If no event, return
-      match (curr, prev) {
-        // No new event
-        (None, Some(prev)) => {
-          esp_println::println!("No new event");
-          STATE.borrow_ref_mut(cs).replace(prev);
-        }
+    let Some(id) = event_id() else {
+      hal::delay::FreeRtos::delay_ms(5);
+      continue;
+    };
 
-        // Same as previous event
-        (Some(curr), Some(prev)) if curr == prev => {
-          esp_println::println!("No change");
-          STATE.borrow_ref_mut(cs).replace(prev);
-        }
+    log::info!("Button {} pressed", id);
 
-        // New event
-        (Some(curr), _) => {
-          esp_println::println!("New button pushed: {}", curr);
+    if keyboard.connected() {
+      keyboard.write(id.to_string().as_str());
+    }
 
-          if keyboard.connected() {
-            keyboard.write(curr.to_string().as_str());
-          }
-
-          STATE.borrow_ref_mut(cs).replace(curr);
-        }
-
-        (None, None) => return,
-      }
-
-      // watchdog.feed().unwrap();
-      hal::delay::FreeRtos::delay_ms(50);
-    });
+    hal::delay::FreeRtos::delay_ms(5);
   }
 }
