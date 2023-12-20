@@ -134,12 +134,12 @@ lazy_static! {
         meta1.insert(button::ID::B4, 6); // '1' + 53 = 'f'
 
         let mut meta2 = HashMap::new();
-        meta2.insert(button::ID::A2, 6); // '1' + 0 = '1'
-        meta2.insert(button::ID::A3, 7); // '1' + 1 = '2'
-        meta2.insert(button::ID::A4, 8); // '1' + 2 = '3'
-        meta2.insert(button::ID::B2, 9); // '1' + 3 = '4'
-        meta2.insert(button::ID::B3, 10); // '1' + 4 = '5'
-        meta2.insert(button::ID::B4, 11); // '1' + 5 = '6'
+        meta2.insert(button::ID::A2, 7); // '1' + 0 = '1'
+        meta2.insert(button::ID::A3, 8); // '1' + 1 = '2'
+        meta2.insert(button::ID::A4, 9); // '1' + 2 = '3'
+        meta2.insert(button::ID::B2, 10); // '1' + 3 = '4'
+        meta2.insert(button::ID::B3, 11); // '1' + 4 = '5'
+        meta2.insert(button::ID::B4, 12); // '1' + 5 = '6'
 
         let mut table = HashMap::new();
         table.insert(button::ID::M1, meta1);
