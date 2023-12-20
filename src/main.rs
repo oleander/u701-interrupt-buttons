@@ -53,9 +53,9 @@ pub mod media {
     Eject
   }
 
-  impl Command {
-    pub fn to_command(&self) -> [u8; 2] {
-      match self {
+  impl From<Command> for [u8; 2] {
+    fn from(cmd: Command) -> Self {
+      match cmd {
         Command::VolumeDown => [64, 0],
         Command::NextTrack => [1, 0],
         Command::PrevTrack => [2, 0],
