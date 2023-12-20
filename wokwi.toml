@@ -1,5 +1,5 @@
 [wokwi]
-version = 1
+firmware = "target/riscv32imc-esp-espidf/release/u701-interupt-buttons"
+elf = "target/riscv32imc-esp-espidf/release/u701-interupt-buttons"
 gdbServerPort = 3333
-elf = "target/riscv32imc-esp-espidf/debug/u701-interupt-buttons"
-firmware = "target/riscv32imc-esp-espidf/debug/u701-interupt-buttons"
+version = 1

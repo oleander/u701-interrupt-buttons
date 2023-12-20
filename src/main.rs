@@ -76,13 +76,13 @@ enum Packet {
 pub mod button {
   #[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
   pub enum ID {
-    M1 = 0x04, // Corresponds to BUTTON_1: Red (Meta)
-    A2 = 0x50, // Corresponds to BUTTON_2: Black (Volume down)
-    A3 = 0x51, // Corresponds to BUTTON_3: Blue (Prev track)
+    M1 = 4, // Corresponds to BUTTON_1: Red (Meta)
+    A2 = 5, // Corresponds to BUTTON_2: Black (Volume down)
+    A3 = 6, // Corresponds to BUTTON_3: Blue (Prev track)
     A4 = 0x52, // Corresponds to BUTTON_4: Black (Play/Pause)
     M2 = 0x29, // Corresponds to BUTTON_5: Red (Meta)
     B2 = 0x4F, // Corresponds to BUTTON_6: Black (Volume up)
-    B3 = 0x05, // Corresponds to BUTTON_7: Blue (Next track)
+    B3 = 0x15, // Corresponds to BUTTON_7: Blue (Next track)
     B4 = 0x28  // Corresponds to BUTTON_8: Black (Toggle AC)
   }
 
@@ -95,13 +95,13 @@ pub mod button {
   impl From<&i32> for ID {
     fn from(id: &i32) -> Self {
       match id {
-        0x04 => ID::M1,
-        0x50 => ID::A2,
-        0x51 => ID::A3,
+        4 => ID::M1,
+        5 => ID::A2,
+        6 => ID::A3,
         0x52 => ID::A4,
         0x29 => ID::M2,
         0x4F => ID::B2,
-        0x05 => ID::B3,
+        0x15 => ID::B3,
         0x28 => ID::B4,
         _ => panic!("Unknown button ID: {}", id)
       }
@@ -216,9 +216,9 @@ fn main() -> Result<(), EspError> {
 
   let peripherals = Peripherals::take().unwrap();
 
-  setup_button!(peripherals.pins.gpio13);
-  setup_button!(peripherals.pins.gpio12);
-  setup_button!(peripherals.pins.gpio9);
+  setup_button!(peripherals.pins.gpio4);
+  setup_button!(peripherals.pins.gpio5);
+  setup_button!(peripherals.pins.gpio6);
 
   loop {
     for event in events() {

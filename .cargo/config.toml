@@ -2,10 +2,9 @@
 target = "riscv32imc-esp-espidf"
 
 [target.riscv32imc-esp-espidf]
-linker = "ldproxy"
-# # rustflags = ["--cfg", "espidf_time64"]
-rustflags = ["-C", "default-linker-libraries"]
 runner = "espflash flash --monitor --baud 921600 --port /dev/cu.usbserial-0001"
+rustflags = ["-C", "default-linker-libraries"]
+linker = "ldproxy"
 
 [unstable]
 build-std = ["std", "panic_abort"]
